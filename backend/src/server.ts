@@ -5,6 +5,7 @@ import getIPAddresses from "./config/IP";
 import { fetchPublicIP } from "./config/IP";
 import portfinder from "portfinder";
 import dotenv from "dotenv";
+import { testDatabaseConnection } from "./database/connection";
 
 dotenv.config();
 const IP = getIPAddresses.IP();
@@ -30,6 +31,13 @@ async function startServer() {
       );
       console.log(`  🚀  ➜   Local:  `, color.green(`http://${IP}:${PORT}`));
     });
+    
+    // Test database connection before starting server
+    const dbConnected = await testDatabaseConnection();
+    if (!dbConnected) {
+      console.error("❌ Failed to connect to database. Server will not start.");
+      process.exit(1);
+    }
   } catch (err) {
     console.error(`Server startup error: ${err}`);
     process.exit(1);
