@@ -1,4 +1,3 @@
-import axios from "axios";
 import os from "os"; // Import the os module from Node.js
 
 function IP() {
@@ -18,8 +17,9 @@ function IP() {
 }
 async function fetchPublicIP() {
   try {
-    const response = await axios.get("https://api.ipify.org?format=json");
-    return response.data.ip;
+    const response = await fetch("https://api.ipify.org?format=json");
+    const data = await response.json() as { ip: string };
+    return data.ip;
   } catch (error) {
     console.error("Could not fetch public IP:", error);
     return "localhost";
