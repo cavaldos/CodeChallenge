@@ -1,7 +1,7 @@
-import { Fragment, Suspense, useEffect } from 'react'
-import MainRouter from '~/routers'
-import { BrowserRouter as Router, Route, Routes } from 'react-router-dom'
-import { useAppSelector } from '~/redux/hooks'
+import { Fragment, Suspense, useEffect } from 'react';
+import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import { PublicRouter, PrivateRouter } from '~/routers';
+import { useAppSelector } from '~/redux/hooks';
 
 const App: React.FC = () => {
   const themeMode = useAppSelector(state => state.theme.mode);
@@ -14,7 +14,7 @@ const App: React.FC = () => {
     <Router>
       <Suspense fallback={<div>Loading...</div>}>
         <Routes>
-          {MainRouter.map((route, index) => {
+          {PublicRouter.map((route, index) => {
             const Layout = route.Layout === null ? Fragment : route.Layout;
             const Page = route.component;
             return (
@@ -33,10 +33,10 @@ const App: React.FC = () => {
             path="*"
             element={
               <Fragment>
-                <div className="not-found">
-                  <div>
-                    <h1>404 Not Found</h1>
-                    <p className="text-muted mt-2">The page you requested does not exist.</p>
+                <div className="grid min-h-[60vh] place-items-center px-4 text-center">
+                  <div className="space-y-2">
+                    <h1 className="text-2xl font-semibold tracking-tight">404 Not Found</h1>
+                    <p className="text-sm text-muted-foreground">The page you requested does not exist.</p>
                   </div>
                 </div>
               </Fragment>
@@ -45,7 +45,7 @@ const App: React.FC = () => {
         </Routes>
       </Suspense>
     </Router>
-  )
-}
+  );
+};
 
-export default App
+export default App;

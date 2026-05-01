@@ -4,6 +4,18 @@ import { fetcher, postFetcher, patchFetcher, deleteFetcher } from './api.instanc
 // Types
 export type CampaignStatus = 'draft' | 'sending' | 'scheduled' | 'sent';
 
+export interface CampaignStatsSummary {
+  total: number;
+  sent: number;
+  failed: number;
+  opened: number;
+}
+
+export interface CampaignStats extends CampaignStatsSummary {
+  open_rate: number;
+  send_rate: number;
+}
+
 export interface Campaign {
   id: string;
   name: string;
@@ -11,16 +23,7 @@ export interface Campaign {
   status: CampaignStatus;
   scheduled_at: string | null;
   created_at: string;
-  stats?: CampaignStats;
-}
-
-export interface CampaignStats {
-  total: number;
-  sent: number;
-  failed: number;
-  opened: number;
-  open_rate: number;
-  send_rate: number;
+  stats?: CampaignStatsSummary;
 }
 
 export interface CampaignDetail extends Campaign {
