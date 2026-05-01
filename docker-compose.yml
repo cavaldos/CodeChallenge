@@ -1,0 +1,35 @@
+services:
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: frontend-app
+    ports:
+      - "5173:5173"
+    networks:
+      - default
+    env_file: "./frontend/.env"
+    environment:
+      - NODE_ENV=production
+    depends_on:
+      - backend
+    restart: always
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: backend-app
+    ports:
+      - "5001:5001"
+    networks:
+      - default
+    environment:
+      - NODE_ENV=production
+    restart: always
+
+
+networks:
+  default:
+    driver: bridge

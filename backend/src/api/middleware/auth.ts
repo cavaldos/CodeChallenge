@@ -8,6 +8,99 @@ const REFRESH_TOKEN_SECRET = process.env.REFRESH_TOKEN_SECRET || 'refresh-secret
 const REFRESH_TOKEN_EXPIRES_IN = process.env.REFRESH_TOKEN_EXPIRES_IN || '7d';
 const PASSWORD_SECRET = process.env.PASSWORD_SECRET || 'password-secret';
 
+export const ACCESS_TOKEN_COOKIE_NAME = 'access_token';
+export const REFRESH_TOKEN_COOKIE_NAME = 'refresh_token';
+
+const isProduction = process.env.NODE_ENV === 'production';
+const cookieSameSite: 'lax' | 'none' = isProduction ? 'none' : 'lax';
+
+const COOKIE_OPTIONS = {
+  httpOnly: true,
+  secure: isProduction,
+  sameSite: cookieSameSite,
+  path: '/',
+} as const;
+
+function parseDurationToMilliseconds(duration: string): number {
+  const match = duration.match(/^(\d+)([smhd])$/);
+  if (!match) {
+    return 15 * 60 * 1000;
+  }
+
+  const amount = Number(match[1]);
+  const unit = match[2];
+
+  const unitToMilliseconds: Record<'s' | 'm' | 'h' | 'd', number> = {
+    s: 1000,
+    m: 60 * 1000,
+    h: 60 * 60 * 1000,
+    d: 24 * 60 * 60 * 1000,
+  };
+
+  return amount * unitToMilliseconds[unit as 's' | 'm' | 'h' | 'd'];
+}
+
+function getCookieValue(cookieHeader: string | undefined, cookieName: string): string | null {
+  if (!cookieHeader) {
+    return null;
+  }
+
+  const cookie = cookieHeader
+    .split(';')
+    .map(item => item.trim())
+    .find(item => item.startsWith(`${cookieName}=`));
+
+  if (!cookie) {
+    return null;
+  }
+
+  const value = cookie.slice(cookieName.length + 1);
+  return value ? decodeURIComponent(value) : null;
+}
+
+export function setAuthCookies(res: Response, accessToken: string, refreshToken: string): void {
+  res.cookie(ACCESS_TOKEN_COOKIE_NAME, accessToken, {
+    ...COOKIE_OPTIONS,
+    maxAge: parseDurationToMilliseconds(JWT_EXPIRES_IN),
+  });
+
+  res.cookie(REFRESH_TOKEN_COOKIE_NAME, refreshToken, {
+    ...COOKIE_OPTIONS,
+    maxAge: parseDurationToMilliseconds(REFRESH_TOKEN_EXPIRES_IN),
+  });
+}
+
+export function clearAuthCookies(res: Response): void {
+  res.clearCookie(ACCESS_TOKEN_COOKIE_NAME, COOKIE_OPTIONS);
+  res.clearCookie(REFRESH_TOKEN_COOKIE_NAME, COOKIE_OPTIONS);
+}
+
+export function getRefreshTokenFromRequest(req: Request): string | null {
+  return getCookieValue(req.header('cookie'), REFRESH_TOKEN_COOKIE_NAME);
+}
+
+function getAccessTokenFromRequest(req: Request): string | null {
+  const authorizationHeader = req.header('Authorization');
+
+  if (authorizationHeader && authorizationHeader.startsWith('Bearer ')) {
+    return authorizationHeader.replace('Bearer ', '').trim();
+  }
+
+  return getCookieValue(req.header('cookie'), ACCESS_TOKEN_COOKIE_NAME);
+}
+
+export function verifyAccessToken(token: string): AuthTokenPayload | null {
+  try {
+    const payload = jwt.verify(token, JWT_SECRET) as AuthTokenPayload;
+    return {
+      userId: payload.userId,
+      email: payload.email,
+    };
+  } catch {
+    return null;
+  }
+}
+
 type JwtExpiry = `${number}${'s' | 'm' | 'h' | 'd'}`;
 
 export interface AuthTokenPayload {
@@ -60,9 +153,9 @@ export function verifyRefreshToken(token: string): AuthTokenPayload | null {
 }
 
 export function requireAuth(req: Request, res: Response, next: NextFunction): void {
-  const authorizationHeader = req.header('Authorization');
+  const token = getAccessTokenFromRequest(req);
 
-  if (!authorizationHeader || !authorizationHeader.startsWith('Bearer ')) {
+  if (!token) {
     res.status(401).json({
       error: 'UNAUTHORIZED',
       message: 'Missing or invalid authorization token',
@@ -70,19 +163,16 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
     return;
   }
 
-  const token = authorizationHeader.replace('Bearer ', '').trim();
+  const payload = verifyAccessToken(token);
 
-  try {
-    const payload = jwt.verify(token, JWT_SECRET) as AuthTokenPayload;
-    (req as AuthenticatedRequest).user = {
-      userId: payload.userId,
-      email: payload.email,
-    };
-    next();
-  } catch {
+  if (!payload) {
     res.status(401).json({
       error: 'UNAUTHORIZED',
       message: 'Token is invalid or expired',
     });
+    return;
   }
+
+  (req as AuthenticatedRequest).user = payload;
+  next();
 }

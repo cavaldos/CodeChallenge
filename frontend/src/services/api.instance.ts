@@ -1,117 +1,84 @@
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
 
-// Store JWT token in memory
-let authToken: string | null = null;
+interface ApiError {
+  error?: string;
+  message?: string;
+}
 
-export const setAuthToken = (token: string | null) => {
-  authToken = token;
-  if (token) {
-    localStorage.setItem('token', token);
-  } else {
-    localStorage.removeItem('token');
+type HttpMethod = 'GET' | 'POST' | 'PATCH' | 'DELETE';
+
+let isRefreshingToken = false;
+let refreshPromise: Promise<boolean> | null = null;
+
+const defaultHeaders: HeadersInit = {
+  'Content-Type': 'application/json',
+};
+
+const resolveErrorMessage = async (response: Response): Promise<string> => {
+  try {
+    const parsed = (await response.json()) as ApiError;
+    return parsed.message || parsed.error || `Request failed with status ${response.status}`;
+  } catch {
+    return `Request failed with status ${response.status}`;
   }
 };
 
-export const initAuthToken = () => {
-  const token = localStorage.getItem('token');
-  if (token) {
-    setAuthToken(token);
-  }
-  return token;
-};
-
-export const getAuthToken = () => authToken;
-
-// SWR fetcher with JWT auth
-export const fetcher = async <T>(url: string): Promise<T> => {
-  const headers: HeadersInit = {
-    'Content-Type': 'application/json',
-  };
-
-  if (authToken) {
-    headers['Authorization'] = `Bearer ${authToken}`;
+const attemptRefreshToken = async (): Promise<boolean> => {
+  if (isRefreshingToken && refreshPromise) {
+    return refreshPromise;
   }
 
-  const res = await fetch(`${API_BASE_URL}${url}`, {
-    method: 'GET',
-    headers,
-  });
-
-  if (!res.ok) {
-    const error = new Error('Request failed');
-    throw error;
-  }
-
-  return res.json() as Promise<T>;
-};
-
-// POST fetcher for creating/updating data
-export const postFetcher = async <T>(url: string, data?: unknown): Promise<T> => {
-  const headers: HeadersInit = {
-    'Content-Type': 'application/json',
-  };
-
-  if (authToken) {
-    headers['Authorization'] = `Bearer ${authToken}`;
-  }
-
-  const res = await fetch(`${API_BASE_URL}${url}`, {
+  isRefreshingToken = true;
+  refreshPromise = fetch(`${API_BASE_URL}/auth/refresh`, {
     method: 'POST',
-    headers,
+    headers: defaultHeaders,
+    credentials: 'include',
+  })
+    .then(response => response.ok)
+    .catch(() => false)
+    .finally(() => {
+      isRefreshingToken = false;
+      refreshPromise = null;
+    });
+
+  return refreshPromise;
+};
+
+const request = async <T>(url: string, method: HttpMethod, data?: unknown, retry = true): Promise<T> => {
+  const response = await fetch(`${API_BASE_URL}${url}`, {
+    method,
+    headers: defaultHeaders,
+    credentials: 'include',
     body: data ? JSON.stringify(data) : undefined,
   });
 
-  if (!res.ok) {
-    const error = new Error('Request failed');
-    throw error;
+  const isAuthRefreshEndpoint = url === '/auth/refresh';
+  const isAuthLoginEndpoint = url === '/auth/login';
+  const isAuthRegisterEndpoint = url === '/auth/register';
+
+  if (response.status === 401 && retry && !isAuthRefreshEndpoint && !isAuthLoginEndpoint && !isAuthRegisterEndpoint) {
+    const refreshed = await attemptRefreshToken();
+    if (refreshed) {
+      return request<T>(url, method, data, false);
+    }
   }
 
-  return res.json() as Promise<T>;
+  if (!response.ok) {
+    const errorMessage = await resolveErrorMessage(response);
+    throw new Error(errorMessage);
+  }
+
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
+  return response.json() as Promise<T>;
 };
 
-// PATCH fetcher
-export const patchFetcher = async <T>(url: string, data?: unknown): Promise<T> => {
-  const headers: HeadersInit = {
-    'Content-Type': 'application/json',
-  };
+export const fetcher = async <T>(url: string): Promise<T> => request<T>(url, 'GET');
 
-  if (authToken) {
-    headers['Authorization'] = `Bearer ${authToken}`;
-  }
+export const postFetcher = async <T>(url: string, data?: unknown): Promise<T> => request<T>(url, 'POST', data);
 
-  const res = await fetch(`${API_BASE_URL}${url}`, {
-    method: 'PATCH',
-    headers,
-    body: data ? JSON.stringify(data) : undefined,
-  });
+export const patchFetcher = async <T>(url: string, data?: unknown): Promise<T> => request<T>(url, 'PATCH', data);
 
-  if (!res.ok) {
-    const error = new Error('Request failed');
-    throw error;
-  }
-
-  return res.json() as Promise<T>;
-};
-
-// DELETE fetcher
-export const deleteFetcher = async <T>(url: string): Promise<T> => {
-  const headers: HeadersInit = {
-    'Content-Type': 'application/json',
-  };
-
-  if (authToken) {
-    headers['Authorization'] = `Bearer ${authToken}`;
-  }
-
-  const res = await fetch(`${API_BASE_URL}${url}`, {
-    method: 'DELETE',
-    headers,
-  });
-
-  if (!res.ok) {
-    const error = new Error('Request failed');
-    throw error;
-  }
-
-  return res.json() as Promise<T>;
-};
+export const deleteFetcher = async <T>(url: string): Promise<T> => request<T>(url, 'DELETE');

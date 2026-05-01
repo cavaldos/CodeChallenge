@@ -2,11 +2,15 @@ import { ZodError } from 'zod';
 import { Request, Response } from 'express';
 import UserRepository from '../repository/user.repo';
 import {
+  clearAuthCookies,
   comparePassword,
+  getRefreshTokenFromRequest,
   hashPassword,
   signAccessToken,
   signRefreshToken,
   verifyRefreshToken,
+  setAuthCookies,
+  AuthenticatedRequest,
 } from '../middleware/auth';
 import {
   registerSchema,
@@ -75,9 +79,9 @@ const UserController = {
         email: user.email,
       });
 
+      setAuthCookies(res, accessToken, refreshToken);
+
       res.status(200).json({
-        accessToken,
-        refreshToken,
         user: {
           id: user.id,
           email: user.email,
@@ -94,33 +98,92 @@ const UserController = {
   },
 
   async refresh(req: Request, res: Response): Promise<void> {
-    try {
-      const { refreshToken } = validateInput(refreshSchema, req.body);
+    const refreshTokenFromCookie = getRefreshTokenFromRequest(req);
 
-      const payload = verifyRefreshToken(refreshToken.trim());
-      if (!payload) {
-        res.status(401).json({
-          error: 'UNAUTHORIZED',
-          message: 'Refresh token is invalid or expired',
-        });
-        return;
+    let refreshToken = refreshTokenFromCookie;
+
+    if (!refreshToken && typeof req.body === 'object' && req.body !== null && 'refreshToken' in req.body) {
+      try {
+        const parsed = validateInput(refreshSchema, req.body);
+        refreshToken = parsed.refreshToken;
+      } catch (err) {
+        if (err instanceof ZodError) {
+          sendValidationError(res, getValidationErrors(err));
+          return;
+        }
+        throw err;
       }
-
-      const accessToken = signAccessToken({
-        userId: payload.userId,
-        email: payload.email,
-      });
-
-      res.status(200).json({
-        accessToken,
-      });
-    } catch (err) {
-      if (err instanceof ZodError) {
-        sendValidationError(res, getValidationErrors(err));
-        return;
-      }
-      throw err;
     }
+
+    if (!refreshToken) {
+      res.status(401).json({
+        error: 'UNAUTHORIZED',
+        message: 'Refresh token is missing',
+      });
+      return;
+    }
+
+    const payload = verifyRefreshToken(refreshToken.trim());
+    if (!payload) {
+      clearAuthCookies(res);
+      res.status(401).json({
+        error: 'UNAUTHORIZED',
+        message: 'Refresh token is invalid or expired',
+      });
+      return;
+    }
+
+    const accessToken = signAccessToken({
+      userId: payload.userId,
+      email: payload.email,
+    });
+
+    const rotatedRefreshToken = signRefreshToken({
+      userId: payload.userId,
+      email: payload.email,
+    });
+
+    setAuthCookies(res, accessToken, rotatedRefreshToken);
+
+    res.status(200).json({
+      success: true,
+    });
+  },
+
+  async me(req: Request, res: Response): Promise<void> {
+    const authenticatedRequest = req as AuthenticatedRequest;
+    const userId = authenticatedRequest.user?.userId;
+
+    if (!userId) {
+      res.status(401).json({
+        error: 'UNAUTHORIZED',
+        message: 'Missing authenticated user context',
+      });
+      return;
+    }
+
+    const user = await UserRepository.findById(userId);
+
+    if (!user) {
+      clearAuthCookies(res);
+      res.status(404).json({
+        error: 'NOT_FOUND',
+        message: 'User not found',
+      });
+      return;
+    }
+
+    res.status(200).json({
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      created_at: user.createdAt.toISOString(),
+    });
+  },
+
+  async logout(_req: Request, res: Response): Promise<void> {
+    clearAuthCookies(res);
+    res.status(200).json({ success: true });
   },
 };
 

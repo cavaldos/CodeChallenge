@@ -1,19 +1,17 @@
 import useSWR from 'swr';
-import { postFetcher, setAuthToken, fetcher as baseFetcher } from './api.instance';
+import { postFetcher, fetcher as baseFetcher } from './api.instance';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
 
 // Types
 export interface User {
-  id: number;
+  id: string;
   email: string;
   name: string;
   created_at: string;
 }
 
 export interface AuthResponse {
-  accessToken: string;
-  refreshToken?: string;
   user: User;
 }
 
@@ -37,7 +35,7 @@ export interface RegisterResponse {
 }
 
 export interface RefreshResponse {
-  accessToken: string;
+  success: boolean;
 }
 
 export const register = async (data: RegisterData): Promise<RegisterResponse> => {
@@ -60,6 +58,7 @@ export const login = async (data: LoginData): Promise<AuthResponse> => {
   const res = await fetch(`${API_BASE_URL}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
     body: JSON.stringify(data),
   });
 
@@ -69,16 +68,15 @@ export const login = async (data: LoginData): Promise<AuthResponse> => {
   }
 
   const response: AuthResponse = await res.json();
-  setAuthToken(response.accessToken);
   return response;
 };
 
-export const refreshAccessToken = async (refreshToken: string): Promise<RefreshResponse> => {
-  return postFetcher<RefreshResponse>('/auth/refresh', { refreshToken });
+export const refreshAccessToken = async (): Promise<RefreshResponse> => {
+  return postFetcher<RefreshResponse>('/auth/refresh');
 };
 
-export const logout = () => {
-  setAuthToken(null);
+export const logout = async (): Promise<void> => {
+  await postFetcher<{ success: boolean }>('/auth/logout');
 };
 
 // Current user hook

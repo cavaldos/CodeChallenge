@@ -1,7 +1,42 @@
 import { Fragment, Suspense, useEffect } from 'react';
-import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import { BrowserRouter as Router, Navigate, Outlet, Route, Routes } from 'react-router-dom';
+import useSWR from 'swr';
 import { PublicRouter, PrivateRouter } from '~/routers';
 import { useAppSelector } from '~/redux/hooks';
+import { fetcher } from '~/services/api.instance';
+import type { User } from '~/services/user.service';
+
+const AuthLoading: React.FC = () => {
+  return <div className="grid min-h-screen place-items-center">Loading...</div>;
+};
+
+const PrivateGuard: React.FC = () => {
+  const { data, error, isLoading } = useSWR<User>('/auth/me', fetcher);
+
+  if (isLoading) {
+    return <AuthLoading />;
+  }
+
+  if (!data || error) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return <Outlet />;
+};
+
+const PublicGuard: React.FC = () => {
+  const { data, isLoading } = useSWR<User>('/auth/me', fetcher);
+
+  if (isLoading) {
+    return <AuthLoading />;
+  }
+
+  if (data) {
+    return <Navigate to="/campaigns" replace />;
+  }
+
+  return <Outlet />;
+};
 
 const App: React.FC = () => {
   const themeMode = useAppSelector(state => state.theme.mode);
@@ -14,21 +49,42 @@ const App: React.FC = () => {
     <Router>
       <Suspense fallback={<div>Loading...</div>}>
         <Routes>
-          {PublicRouter.map((route, index) => {
-            const Layout = route.Layout === null ? Fragment : route.Layout;
-            const Page = route.component;
-            return (
-              <Route
-                key={index}
-                path={route.path}
-                element={
-                  <Layout>
-                    <Page />
-                  </Layout>
-                }
-              />
-            );
-          })}
+          <Route element={<PrivateGuard />}>
+            {PrivateRouter.map((route, index) => {
+              const Layout = route.Layout === null ? Fragment : route.Layout;
+              const Page = route.component;
+              return (
+                <Route
+                  key={`private-${index}`}
+                  path={route.path}
+                  element={
+                    <Layout>
+                      <Page />
+                    </Layout>
+                  }
+                />
+              );
+            })}
+          </Route>
+
+          <Route element={<PublicGuard />}>
+            {PublicRouter.map((route, index) => {
+              const Layout = route.Layout === null ? Fragment : route.Layout;
+              const Page = route.component;
+              return (
+                <Route
+                  key={`public-${index}`}
+                  path={route.path}
+                  element={
+                    <Layout>
+                      <Page />
+                    </Layout>
+                  }
+                />
+              );
+            })}
+          </Route>
+
           <Route
             path="*"
             element={

@@ -42,7 +42,7 @@ const PublicRouter = [
   {
     name: 'Login',
     icon: '',
-    path: '/',
+    path: '/login',
     component: Login,
     Layout: null,
   },
