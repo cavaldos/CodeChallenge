@@ -36,11 +36,7 @@ const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         // eslint-disable-next-line no-console
         console.error('Persistor purge failed', e);
       }
-
-      // Hard reload to the login page to ensure the SPA resets completely.
-      // Users reported the UI only comes back after a manual refresh; doing
-      // a controlled replace here provides the same effect programmatically.
-      window.location.replace('/login');
+      // window.location.replace('/login');
     } catch (err) {
       // If anything fails, fall back to client navigation so user isn't stuck.
       // eslint-disable-next-line no-console
