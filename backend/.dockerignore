@@ -1,0 +1,46 @@
+# Dependencies
+node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build output (sẽ được build lại trong container)
+dist
+build
+
+# Environment files (dùng env_file trong compose)
+.env
+.env.*
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Test & coverage
+coverage
+__tests__
+*.test.ts
+*.spec.ts
+
+# Logs
+logs
+*.log
+
+# Editor & OS
+.vscode
+.idea
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Docker files (không cần copy vào image)
+Dockerfile
+.dockerignore
+docker-compose*.yml
+
+# CI/CD & docs
+.github
+README.md
+*.md

@@ -12,14 +12,19 @@ export const ACCESS_TOKEN_COOKIE_NAME = 'access_token';
 export const REFRESH_TOKEN_COOKIE_NAME = 'refresh_token';
 
 const isProduction = process.env.NODE_ENV === 'production';
-const cookieSameSite: 'lax' | 'none' = isProduction ? 'none' : 'lax';
+const cookieSameSite: 'lax' | 'none' = process.env.COOKIE_SAME_SITE === 'none' ? 'none' : (isProduction ? 'none' : 'lax');
+// When sameSite is 'none', browser requires secure=true (HTTPS). 
+// In development with HTTP, we need to allow it via COOKIE_SECURE env var.
+const cookieSecure = isProduction || cookieSameSite === 'none' || process.env.COOKIE_SECURE === 'true';
 
 const COOKIE_OPTIONS = {
   httpOnly: true,
-  secure: isProduction,
+  secure: cookieSecure,
   sameSite: cookieSameSite,
   path: '/',
 } as const;
+
+console.log('[Cookie] sameSite:', cookieSameSite, '| secure:', cookieSecure);
 
 function parseDurationToMilliseconds(duration: string): number {
   const match = duration.match(/^(\d+)([smhd])$/);

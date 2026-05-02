@@ -8,27 +8,40 @@ import morgan from "morgan";
 import routers from "./api/routes";
 import { Request, Response } from "express";
 
+// Normalize origin: add protocol if missing
 const normalizeOrigin = (origin: string): string => {
   const trimmed = origin.trim();
-  
-  // Add protocol if missing
   if (!trimmed.startsWith('http')) {
     return `http://${trimmed}`;
   }
-  
   return trimmed;
 };
 
-const DEFAULT_ALLOWED_ORIGINS = ["http://localhost:5173"];
+// Check if origin matches allowed pattern (supports wildcard for ports)
+// Examples: "192.168.1.9:*" matches any port, "192.168.1.9:5173" matches exact port
+const isOriginAllowed = (origin: string, allowedOrigins: string[]): boolean => {
+  for (const allowed of allowedOrigins) {
+    // Exact match
+    if (origin === allowed) return true;
+
+    // Wildcard port matching: "ip:*" matches any port on that IP
+    if (allowed.endsWith(':*')) {
+      const ipPrefix = allowed.slice(0, -2); // Remove ":*"
+      if (origin.startsWith(ipPrefix)) return true;
+    }
+  }
+  return false;
+};
+
+const DEFAULT_ORIGINS = ["http://localhost:5173"];
 
 const parseOrigins = (env: string | undefined): string[] => {
-  if (!env) return DEFAULT_ALLOWED_ORIGINS;
+  if (!env) return DEFAULT_ORIGINS;
 
   let trimmed = env.trim();
+  if (!trimmed) return DEFAULT_ORIGINS;
 
-  if (!trimmed) return DEFAULT_ALLOWED_ORIGINS;
-
-  // Remove surrounding quotes if present (e.g., "['http://localhost:5173']")
+  // Remove surrounding quotes
   if (
     (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
     (trimmed.startsWith("'") && trimmed.endsWith("'"))
@@ -39,41 +52,31 @@ const parseOrigins = (env: string | undefined): string[] => {
   // Handle array format: [value1,value2] or ['value1','value2']
   if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
     const inner = trimmed.slice(1, -1).replace(/['"]/g, '').trim();
-
-    if (!inner) return DEFAULT_ALLOWED_ORIGINS;
-
-    return inner
-      .split(',')
-      .map(origin => normalizeOrigin(origin))
-      .filter(Boolean);
+    if (!inner) return DEFAULT_ORIGINS;
+    return inner.split(',').map(normalizeOrigin).filter(Boolean);
   }
 
-  return trimmed
-    .split(',')
-    .map(origin => normalizeOrigin(origin))
-    .filter(Boolean);
+  return trimmed.split(',').map(normalizeOrigin).filter(Boolean);
 };
 
 const ALLOWED_ORIGINS = parseOrigins(process.env.CORS_ORIGINS);
 
-console.log('[CORS] CORS_ORIGINS:', process.env.CORS_ORIGINS);
-console.log('[CORS] ALLOWED_ORIGINS:', ALLOWED_ORIGINS);
+console.log('[CORS] Allowed origins:', ALLOWED_ORIGINS);
 
 const corsOrigin = (
   origin: string | undefined,
   callback: (err: Error | null, allow?: boolean) => void,
 ) => {
-  console.log('[CORS] Request origin:', origin);
-
+  // Allow requests with no origin (e.g., mobile apps, curl)
   if (!origin) {
     callback(null, true);
     return;
   }
 
   const normalizedOrigin = normalizeOrigin(origin);
-  const allowed = ALLOWED_ORIGINS.includes(normalizedOrigin);
+  const allowed = isOriginAllowed(normalizedOrigin, ALLOWED_ORIGINS);
 
-  console.log('[CORS] Allowed:', allowed);
+  console.log('[CORS] Request:', normalizedOrigin, '| Allowed:', allowed);
   callback(null, allowed);
 };
 

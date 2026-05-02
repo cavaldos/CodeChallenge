@@ -3,33 +3,44 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-      args:
-        VITE_API_URL: http://localhost:5001
+      # Tận dụng layer cache từ image đã build trước
+      cache_from:
+        - frontend-app:latest
+    image: frontend-app:latest        # đặt tên để cache_from hoạt động
     container_name: frontend-app
     ports:
       - "5173:5173"
     networks:
       - app-network
+    env_file:
+      - ./frontend/.env
     environment:
       NODE_ENV: production
     depends_on:
       - backend
-    restart: always
+    restart: unless-stopped
+    volumes:
+      - /app/node_modules
 
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
+      cache_from:
+        - backend-app:latest
+    image: backend-app:latest          # đặt tên để cache_from hoạt động
     container_name: backend-app
     ports:
       - "5001:5001"
     networks:
       - app-network
-    env_file: "./backend/.env"
+    env_file:
+      - ./backend/.env
     environment:
       NODE_ENV: production
-      CORS_ORIGINS: ${CORS_ORIGINS}
-    restart: always
+    restart: unless-stopped
+    volumes:
+      - /usr/src/app/node_modules
 
 networks:
   app-network:

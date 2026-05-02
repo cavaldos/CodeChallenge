@@ -1,21 +1,25 @@
-FROM node:22-alpine
-
+FROM node:22-alpine AS deps
 WORKDIR /usr/src/app
 COPY package.json yarn.lock ./
-
-RUN yarn global add typescript
 RUN yarn install --frozen-lockfile
 
 
+FROM node:22-alpine AS builder
+WORKDIR /usr/src/app
+COPY --from=deps /usr/src/app/node_modules ./node_modules
 COPY . .
-COPY .env ./
-
 RUN yarn build
 
+
+FROM node:22-alpine AS production
+WORKDIR /usr/src/app
+
+COPY --from=builder /usr/src/app/package.json ./
+COPY --from=builder /usr/src/app/yarn.lock ./
+
+RUN yarn install --production --frozen-lockfile
+COPY --from=builder /usr/src/app/dist ./dist
+
 EXPOSE 5001
-EXPOSE 3000
 
 CMD ["node", "dist/server.js"]
-
-# docker build -t server .
-# docker run -p 3000:3000 server.
