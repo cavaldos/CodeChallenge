@@ -7,6 +7,7 @@ import { toggleTheme } from '~/redux/features/themeSlice';
 import { useAppDispatch, useAppSelector } from '~/redux/hooks';
 import { logout } from '~/services/user.service';
 import { mutateAuth } from '~/services/auth';
+import { persistor } from '~/redux/store';
 
 const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const dispatch = useAppDispatch();
@@ -22,11 +23,31 @@ const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     setIsLoggingOut(true);
 
     try {
+      // Call server logout first to clear session cookie
       await logout();
-      await mutateAuth();
+
+      // Clear auth cache immediately
+      await mutateAuth(false);
+
+      // Purge persisted redux state to avoid stale UI after logout
+      try {
+        await persistor.purge();
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.error('Persistor purge failed', e);
+      }
+
+      // Hard reload to the login page to ensure the SPA resets completely.
+      // Users reported the UI only comes back after a manual refresh; doing
+      // a controlled replace here provides the same effect programmatically.
+      window.location.replace('/login');
+    } catch (err) {
+      // If anything fails, fall back to client navigation so user isn't stuck.
+      // eslint-disable-next-line no-console
+      console.error('Logout flow failed', err);
+      navigate('/login', { replace: true });
     } finally {
       setIsLoggingOut(false);
-      navigate('/login', { replace: true });
     }
   };
 

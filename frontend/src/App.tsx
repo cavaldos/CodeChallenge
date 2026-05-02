@@ -30,21 +30,23 @@ const PrivateGuard: React.FC = () => {
 };
 
 const PublicGuard: React.FC = () => {
-  const { data, isLoading } = useSWR<User>('/auth/me', fetcher, {
+  // For public routes we intentionally avoid blocking the UI while
+  // SWR checks auth. This allows login/register pages to show
+  // immediately after logout instead of displaying a full-screen
+  // loading state.
+  const { data } = useSWR<User>('/auth/me', fetcher, {
     revalidateOnFocus: false,
     revalidateOnReconnect: false,
     refreshInterval: 0,
     shouldRetryOnError: false,
   });
 
-  if (isLoading) {
-    return <AuthLoading />;
-  }
-
+  // If user is authenticated redirect to private area.
   if (data) {
     return <Navigate to="/campaigns" replace />;
   }
 
+  // Otherwise render public routes immediately.
   return <Outlet />;
 };
 

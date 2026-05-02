@@ -7,7 +7,12 @@ import store from '~/redux/store';
 const ProviderGlobal = ({ children }: { children: React.ReactNode }) => {
     return (
         <Provider store={store}>
-            <PersistGate loading={null} persistor={persistor}>
+            <PersistGate
+                loading={
+                    <div className="grid min-h-screen place-items-center">Loading app...</div>
+                }
+                persistor={persistor}
+            >
                 {children}
             </PersistGate>
         </Provider>

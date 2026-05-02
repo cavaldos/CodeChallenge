@@ -1,4 +1,4 @@
-import { LogIn } from 'lucide-react';
+import { LogIn, ArrowLeft } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '~/com
 import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
 import { login } from '~/services/user.service';
+import { mutateAuth } from '~/services/auth';
 
 const LoginPage = () => {
   const navigate = useNavigate();
@@ -22,7 +23,9 @@ const LoginPage = () => {
 
     try {
       await login({ email, password });
-      navigate('/campaigns');
+      // Revalidate auth state so guards pick up the new session immediately
+      await mutateAuth();
+      navigate('/campaigns', { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed');
     } finally {
@@ -32,7 +35,13 @@ const LoginPage = () => {
 
   return (
     <div className="grid min-h-screen place-items-center bg-muted/30 px-4 py-10">
-      <Card className="w-full max-w-md border shadow-sm" size="sm">
+      <div className="w-full max-w-md">
+        <Button type="button" variant="ghost" size="xs" className="mb-4" onClick={() => navigate('/') }>
+          <ArrowLeft className="mr-2 size-4" />
+          Back
+        </Button>
+
+        <Card className="w-full border shadow-sm" size="sm">
         <CardHeader>
           <CardTitle>Welcome back</CardTitle>
           <CardDescription>Sign in to manage your email campaigns.</CardDescription>
@@ -74,7 +83,8 @@ const LoginPage = () => {
             </Button>
           </form>
         </CardContent>
-      </Card>
+        </Card>
+      </div>
     </div>
   );
 };

@@ -121,6 +121,7 @@ const HomePage: React.FC = () => {
               type="button"
               variant={mode === 'login' ? 'default' : 'outline'}
               onClick={() => {
+                navigate('/login');
                 setMode('login');
                 setError(null);
                 setNotice(null);
