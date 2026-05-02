@@ -55,8 +55,18 @@ const request = async <T>(url: string, method: HttpMethod, data?: unknown, retry
   const isAuthRefreshEndpoint = url === '/auth/refresh';
   const isAuthLoginEndpoint = url === '/auth/login';
   const isAuthRegisterEndpoint = url === '/auth/register';
+  const isAuthMeEndpoint = url === '/auth/me';
 
-  if (response.status === 401 && retry && !isAuthRefreshEndpoint && !isAuthLoginEndpoint && !isAuthRegisterEndpoint) {
+  // Don't attempt token refresh for auth/me - just let it fail (treat as unauthenticated)
+  const shouldAttemptRefresh =
+    response.status === 401 &&
+    retry &&
+    !isAuthRefreshEndpoint &&
+    !isAuthLoginEndpoint &&
+    !isAuthRegisterEndpoint &&
+    !isAuthMeEndpoint;
+
+  if (shouldAttemptRefresh) {
     const refreshed = await attemptRefreshToken();
     if (refreshed) {
       return request<T>(url, method, data, false);

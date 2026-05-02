@@ -11,21 +11,31 @@ const AuthLoading: React.FC = () => {
 };
 
 const PrivateGuard: React.FC = () => {
-  const { data, error, isLoading } = useSWR<User>('/auth/me', fetcher);
+  const { data, error, isLoading } = useSWR<User>('/auth/me', fetcher, {
+    revalidateOnFocus: false,
+    revalidateOnReconnect: false,
+    refreshInterval: 0,
+    shouldRetryOnError: false,
+  });
 
   if (isLoading) {
     return <AuthLoading />;
   }
 
   if (!data || error) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/" replace />;
   }
 
   return <Outlet />;
 };
 
 const PublicGuard: React.FC = () => {
-  const { data, isLoading } = useSWR<User>('/auth/me', fetcher);
+  const { data, isLoading } = useSWR<User>('/auth/me', fetcher, {
+    revalidateOnFocus: false,
+    revalidateOnReconnect: false,
+    refreshInterval: 0,
+    shouldRetryOnError: false,
+  });
 
   if (isLoading) {
     return <AuthLoading />;

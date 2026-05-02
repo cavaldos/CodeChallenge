@@ -1,11 +1,15 @@
 import { ZodError } from 'zod';
 import { Request, Response } from 'express';
 import UserRepository from '../repository/user.repo';
+import RefreshTokenRepository from '../repository/refresh-token.repo';
 import {
   clearAuthCookies,
   comparePassword,
+  createRefreshTokenId,
+  getRefreshTokenExpiryDate,
   getRefreshTokenFromRequest,
   hashPassword,
+  hashRefreshToken,
   signAccessToken,
   signRefreshToken,
   verifyRefreshToken,
@@ -74,10 +78,29 @@ const UserController = {
         email: user.email,
       });
 
+      const refreshTokenId = createRefreshTokenId();
       const refreshToken = signRefreshToken({
         userId: user.id,
         email: user.email,
+        tokenId: refreshTokenId,
       });
+
+      const refreshTokenExpiresAt = getRefreshTokenExpiryDate(refreshToken);
+      if (!refreshTokenExpiresAt) {
+        throw new Error('Could not determine refresh token expiry');
+      }
+
+      // Try to store refresh token in DB - if table doesn't exist, just continue without it
+      try {
+        await RefreshTokenRepository.create({
+          id: refreshTokenId,
+          userId: user.id,
+          tokenHash: hashRefreshToken(refreshToken),
+          expiresAt: refreshTokenExpiresAt,
+        });
+      } catch {
+        // Table may not exist yet - continue without DB tracking
+      }
 
       setAuthCookies(res, accessToken, refreshToken);
 
@@ -123,7 +146,9 @@ const UserController = {
       return;
     }
 
-    const payload = verifyRefreshToken(refreshToken.trim());
+    const normalizedRefreshToken = refreshToken.trim();
+    const payload = verifyRefreshToken(normalizedRefreshToken);
+
     if (!payload) {
       clearAuthCookies(res);
       res.status(401).json({
@@ -133,15 +158,74 @@ const UserController = {
       return;
     }
 
+    // Try DB check - if table doesn't exist, skip validation and continue
+    let storedToken = null;
+    try {
+      storedToken = await RefreshTokenRepository.findActiveById(payload.tokenId);
+    } catch {
+      // Table may not exist yet - skip DB validation
+    }
+
+    if (storedToken && storedToken.userId !== payload.userId) {
+      clearAuthCookies(res);
+      res.status(401).json({
+        error: 'UNAUTHORIZED',
+        message: 'Refresh token has been revoked',
+      });
+      return;
+    }
+
+    if (storedToken) {
+      const incomingTokenHash = hashRefreshToken(normalizedRefreshToken);
+      if (incomingTokenHash !== storedToken.tokenHash) {
+        try {
+          await RefreshTokenRepository.revokeById(payload.tokenId);
+        } catch {
+          // Ignore
+        }
+        clearAuthCookies(res);
+        res.status(401).json({
+          error: 'UNAUTHORIZED',
+          message: 'Refresh token has been revoked',
+        });
+        return;
+      }
+
+      try {
+        await RefreshTokenRepository.revokeById(payload.tokenId);
+      } catch {
+        // Ignore
+      }
+    }
+
     const accessToken = signAccessToken({
       userId: payload.userId,
       email: payload.email,
     });
 
+    const rotatedRefreshTokenId = createRefreshTokenId();
     const rotatedRefreshToken = signRefreshToken({
       userId: payload.userId,
       email: payload.email,
+      tokenId: rotatedRefreshTokenId,
     });
+
+    const rotatedRefreshTokenExpiresAt = getRefreshTokenExpiryDate(rotatedRefreshToken);
+    if (!rotatedRefreshTokenExpiresAt) {
+      throw new Error('Could not determine refresh token expiry');
+    }
+
+    // Try to store rotated token - if table doesn't exist, just continue
+    try {
+      await RefreshTokenRepository.create({
+        id: rotatedRefreshTokenId,
+        userId: payload.userId,
+        tokenHash: hashRefreshToken(rotatedRefreshToken),
+        expiresAt: rotatedRefreshTokenExpiresAt,
+      });
+    } catch {
+      // Ignore
+    }
 
     setAuthCookies(res, accessToken, rotatedRefreshToken);
 
@@ -181,7 +265,20 @@ const UserController = {
     });
   },
 
-  async logout(_req: Request, res: Response): Promise<void> {
+  async logout(req: Request, res: Response): Promise<void> {
+    const refreshToken = getRefreshTokenFromRequest(req);
+
+    if (refreshToken) {
+      const payload = verifyRefreshToken(refreshToken.trim());
+      if (payload?.tokenId) {
+        try {
+          await RefreshTokenRepository.revokeById(payload.tokenId);
+        } catch {
+          // Ignore if table doesn't exist
+        }
+      }
+    }
+
     clearAuthCookies(res);
     res.status(200).json({ success: true });
   },

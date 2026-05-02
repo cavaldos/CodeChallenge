@@ -1,5 +1,5 @@
-import { createHmac, timingSafeEqual } from 'crypto';
-import jwt from 'jsonwebtoken';
+import { createHmac, randomUUID, timingSafeEqual } from 'crypto';
+import jwt, { JwtPayload } from 'jsonwebtoken';
 import { NextFunction, Request, Response } from 'express';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret';
@@ -108,6 +108,10 @@ export interface AuthTokenPayload {
   email: string;
 }
 
+export interface RefreshTokenPayload extends AuthTokenPayload {
+  tokenId: string;
+}
+
 export interface AuthenticatedRequest extends Request {
   user: AuthTokenPayload;
 }
@@ -134,22 +138,46 @@ export function signAccessToken(payload: AuthTokenPayload): string {
   });
 }
 
-export function signRefreshToken(payload: AuthTokenPayload): string {
+export function createRefreshTokenId(): string {
+  return randomUUID();
+}
+
+export function hashRefreshToken(token: string): string {
+  return createHmac('sha256', REFRESH_TOKEN_SECRET).update(token).digest('hex');
+}
+
+export function signRefreshToken(payload: RefreshTokenPayload): string {
   return jwt.sign(payload, REFRESH_TOKEN_SECRET, {
     expiresIn: REFRESH_TOKEN_EXPIRES_IN as JwtExpiry,
   });
 }
 
-export function verifyRefreshToken(token: string): AuthTokenPayload | null {
+export function verifyRefreshToken(token: string): RefreshTokenPayload | null {
   try {
-    const payload = jwt.verify(token, REFRESH_TOKEN_SECRET) as AuthTokenPayload;
+    const payload = jwt.verify(token, REFRESH_TOKEN_SECRET) as RefreshTokenPayload;
+
+    if (!payload.tokenId) {
+      return null;
+    }
+
     return {
       userId: payload.userId,
       email: payload.email,
+      tokenId: payload.tokenId,
     };
   } catch {
     return null;
   }
+}
+
+export function getRefreshTokenExpiryDate(token: string): Date | null {
+  const decoded = jwt.decode(token) as JwtPayload | null;
+
+  if (!decoded || typeof decoded.exp !== 'number') {
+    return null;
+  }
+
+  return new Date(decoded.exp * 1000);
 }
 
 export function requireAuth(req: Request, res: Response, next: NextFunction): void {

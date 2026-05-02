@@ -18,29 +18,29 @@ const PORSERVER: number = process.env.PORT_SERVER
 const host: string = "0.0.0.0";
 async function startServer() {
   try {
-
-
     const publicIP = await fetchPublicIP();
     const PORT = await portfinder.getPortPromise({ port: PORSERVER });
 
-
+    // Start server first, then test DB connection
     app.listen(PORT, host, () => {
       console.log(
         `  🚀  ➜ Network:  `,
-        color.blue(`http://${publicIP}:${PORT}`)
+        color.blue(`http://${publicIP}:${PORT}`),
       );
       console.log(`  🚀  ➜   Local:  `, color.green(`http://${IP}:${PORT}`));
+      console.log("  ⏳  ➜  Checking database connection...");
+
+      // Test DB after server is listening
+      testDatabaseConnection().then((dbConnected) => {
+        if (!dbConnected) {
+          console.warn(
+            "  ⚠️  Database unavailable. Server is running in degraded mode. Check DB_* environment variables.",
+          );
+        }
+      });
     });
-    
-    // Test database connection before starting server
-    const dbConnected = await testDatabaseConnection();
-    if (!dbConnected) {
-      console.error("❌ Failed to connect to database. Server will not start.");
-      process.exit(1);
-    }
-  } catch (err) {
-    console.error(`Server startup error: ${err}`);
-    process.exit(1);
+  } catch (error: unknown) {
+    console.error("❌ Server startup error:", error);
   }
 }
 

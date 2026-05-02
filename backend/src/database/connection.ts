@@ -38,6 +38,19 @@ export const sequelize = new Sequelize({
 });
 
 /**
+ * Format database error into a clean, single-line message.
+ */
+function formatDbError(error: unknown): string {
+  if (error instanceof Error) {
+    const code = (error as { code?: string }).code
+      ?? (error as { parent?: { code?: string } }).parent?.code;
+    const msg = error.message.split('\n')[0]; // strip Sequelize stack prefix lines
+    return code ? `[${code}] ${msg}` : msg;
+  }
+  return String(error);
+}
+
+/**
  * Test database connection
  */
 export async function testDatabaseConnection(): Promise<boolean> {
@@ -46,7 +59,7 @@ export async function testDatabaseConnection(): Promise<boolean> {
     console.log(`  ✅  ➜  PostgreSQL:  ${DB_HOST}:${DB_PORT}`);
     return true;
   } catch (error) {
-    console.error('❌ Unable to connect to PostgreSQL database:', error);
+    console.error('❌ Unable to connect to PostgreSQL database:', formatDbError(error));
     return false;
   }
 }

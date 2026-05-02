@@ -1,19 +1,13 @@
 import { lazy } from 'react';
 import MainLayout from '~/Layout/MainLayout';
 
+const Home = lazy(() => import('~/pages/home'));
 const Login = lazy(() => import('~/pages/login'));
 const Campaigns = lazy(() => import('~/pages/campaigns'));
 const CampaignNew = lazy(() => import('~/pages/campaign-new'));
 const CampaignDetail = lazy(() => import('~/pages/campaign-detail'));
 
 const PrivateRouter = [
-  {
-    name: 'Campaigns',
-    icon: '',
-    path: '/',
-    component: Campaigns,
-    Layout: MainLayout,
-  },
   {
     name: 'Campaigns',
     icon: '',
@@ -39,6 +33,13 @@ const PrivateRouter = [
 
 
 const PublicRouter = [
+  {
+    name: 'Home',
+    icon: '',
+    path: '/',
+    component: Home,
+    Layout: null,
+  },
   {
     name: 'Login',
     icon: '',
