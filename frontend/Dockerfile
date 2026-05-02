@@ -4,10 +4,12 @@ WORKDIR /app
 
 RUN apk add --no-cache python3 g++ make
 
+ARG VITE_API_URL=http://localhost:5001
+ENV VITE_API_URL=$VITE_API_URL
+
 COPY package.json yarn.lock ./
 RUN yarn install --frozen-lockfile
 
-COPY .env ./
 COPY . .
 
 RUN yarn build

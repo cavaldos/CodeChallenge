@@ -3,14 +3,15 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        VITE_API_URL: http://localhost:5001
     container_name: frontend-app
     ports:
       - "5173:5173"
     networks:
       - app-network
-    env_file: "./frontend/.env"
     environment:
-      - NODE_ENV=production
+      NODE_ENV: production
     depends_on:
       - backend
     restart: always
@@ -26,9 +27,11 @@ services:
       - app-network
     env_file: "./backend/.env"
     environment:
-      - NODE_ENV=production
+      NODE_ENV: production
+      CORS_ORIGINS: http://localhost:5173
     restart: always
 
 networks:
   app-network:
+    name: codechallenge-app-network
     driver: bridge
