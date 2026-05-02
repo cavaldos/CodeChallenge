@@ -2,13 +2,13 @@
 Dùng để copy-paste trực tiếp khi tạo data bằng UI.
 ---
 ## Tài khoản Test
-| Email | Password | Name |
-|-------|---------|------|
-| john@company. com | password123 | John Smith |
-| sarah@company. com | password123 | Sarah Johnson |
-| mike@company. com | password123 | Mike Chen |
-| lisa@company. com | password123 | Lisa Wang |
-| tom@company. com | password123 | Tom Brown |
+| Email | Password | Name | password hashed 
+|-------|---------|------|-----------------|
+| john@company. com | password123 | John Smith | 5664c225788e8379968d8568357ee5c87756f5f664e664007b952a7e3776a9fa |
+| sarah@company. com | password123 | Sarah Johnson | 5664c225788e8379968d8568357ee5c87756f5f664e664007b952a7e3776a9fa |
+| mike@company. com | password123 | Mike Chen | 5664c225788e8379968d8568357ee5c87756f5f664e664007b952a7e3776a9fa |
+| lisa@company. com | password123 | Lisa Wang | 5664c225788e8379968d8568357ee5c87756f5f664e664007b952a7e3776a9fa |
+| tom@company. com | password123 | Tom Brown | 5664c225788e8379968d8568357ee5c87756f5f664e664007b952a7e3776a9fa |
 ---
 ## Recipients (20 người)
 | Email | Name |
