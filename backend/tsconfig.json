@@ -30,8 +30,9 @@
   },
   "exclude": [
     "node_modules",
-    "test",
+    "tests",
     "types",
-    "**/*.test.ts"
+    "coverage",
+    "__test__"
   ]
 }
