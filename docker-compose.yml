@@ -1,5 +1,4 @@
 services:
-
   frontend:
     build:
       context: ./frontend
@@ -8,7 +7,7 @@ services:
     ports:
       - "5173:5173"
     networks:
-      - default
+      - app-network
     env_file: "./frontend/.env"
     environment:
       - NODE_ENV=production
@@ -24,12 +23,12 @@ services:
     ports:
       - "5001:5001"
     networks:
-      - default
+      - app-network
+    env_file: "./backend/.env"
     environment:
       - NODE_ENV=production
     restart: always
 
-
 networks:
-  default:
+  app-network:
     driver: bridge
