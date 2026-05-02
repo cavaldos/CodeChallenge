@@ -19,34 +19,39 @@ const normalizeOrigin = (origin: string): string => {
   return trimmed;
 };
 
+const DEFAULT_ALLOWED_ORIGINS = ["http://localhost:5173"];
+
 const parseOrigins = (env: string | undefined): string[] => {
-  if (!env) return ['http://localhost:5173']; 
-  
-  // Allow all origins in development
-  if (env.trim() === '*') {
-    return ['*'];
-  }
-  
+  if (!env) return DEFAULT_ALLOWED_ORIGINS;
+
   let trimmed = env.trim();
-  
-  // Remove surrounding quotes if present (e.g., "['192.168.1.9']" -> ['192.168.1.9'])
-  if ((trimmed.startsWith('"') && trimmed.endsWith('"')) || 
-      (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
+
+  if (!trimmed) return DEFAULT_ALLOWED_ORIGINS;
+
+  // Remove surrounding quotes if present (e.g., "['http://localhost:5173']")
+  if (
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"))
+  ) {
     trimmed = trimmed.slice(1, -1);
   }
-  
+
   // Handle array format: [value1,value2] or ['value1','value2']
   if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
-    // Remove inner quotes and brackets, then split
-    const inner = trimmed.slice(1, -1)
-      .replace(/['"]/g, '')  // Remove inner quotes
-      .trim();
-    if (!inner) return ['http://localhost:5173'];
-    return inner.split(',').map(o => normalizeOrigin(o)).filter(Boolean);
+    const inner = trimmed.slice(1, -1).replace(/['"]/g, '').trim();
+
+    if (!inner) return DEFAULT_ALLOWED_ORIGINS;
+
+    return inner
+      .split(',')
+      .map(origin => normalizeOrigin(origin))
+      .filter(Boolean);
   }
-  
-  // Simple comma-separated: localhost,192.168.1.9
-  return trimmed.split(',').map(o => normalizeOrigin(o)).filter(Boolean);
+
+  return trimmed
+    .split(',')
+    .map(origin => normalizeOrigin(origin))
+    .filter(Boolean);
 };
 
 const ALLOWED_ORIGINS = parseOrigins(process.env.CORS_ORIGINS);
@@ -54,33 +59,20 @@ const ALLOWED_ORIGINS = parseOrigins(process.env.CORS_ORIGINS);
 console.log('[CORS] CORS_ORIGINS:', process.env.CORS_ORIGINS);
 console.log('[CORS] ALLOWED_ORIGINS:', ALLOWED_ORIGINS);
 
-// CORS origin validator - allows any port for matching origins
-const corsOrigin = (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+const corsOrigin = (
+  origin: string | undefined,
+  callback: (err: Error | null, allow?: boolean) => void,
+) => {
   console.log('[CORS] Request origin:', origin);
-  
-  // Allow all origins
-  if (ALLOWED_ORIGINS.includes('*')) {
-    callback(null, true);
-    return;
-  }
-  
+
   if (!origin) {
     callback(null, true);
     return;
   }
-  
-  const allowed = ALLOWED_ORIGINS.some(allowedOrigin => {
-    // Exact match
-    if (origin === allowedOrigin) return true;
-    // Match any port - extract hostname from request origin and compare
-    const requestUrl = new URL(origin);
-    const allowedUrl = new URL(allowedOrigin);
-    if (requestUrl.hostname === allowedUrl.hostname) {
-      return true;
-    }
-    return false;
-  });
-  
+
+  const normalizedOrigin = normalizeOrigin(origin);
+  const allowed = ALLOWED_ORIGINS.includes(normalizedOrigin);
+
   console.log('[CORS] Allowed:', allowed);
   callback(null, allowed);
 };
