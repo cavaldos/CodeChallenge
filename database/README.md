@@ -2,6 +2,17 @@
 
 This folder contains everything needed to run and seed the PostgreSQL database for the Mini Campaign Manager.
 
+## File Structure
+
+```
+database/
+├── schema.sql       # Creates tables, indexes, constraints, views
+├── insert-data.sql   # Inserts demo data (users, recipients, campaigns)
+├── setup-complete.sql # Combined schema + data (run once)
+├── postgreSQL.yaml  # Docker Compose for PostgreSQL
+└── setup-demo-data.sh # Helper script
+```
+
 ## Option 1: Use the pre-deployed database
 
 You can use the existing deployed database server at:
@@ -24,35 +35,37 @@ This starts PostgreSQL with:
 - password: `CodeChallenge2024`
 - port: `5432`
 
-### Run the schema
+## Quick Start (3 ways)
+
+### Option A: Run schema + data separately
 
 ```bash
+# 1. Create tables
 docker exec -i postgres-db psql -U app_user -d app_db < database/schema.sql
+
+# 2. Insert demo data
+docker exec -i postgres-db psql -U app_user -d app_db < database/insert-data.sql
 ```
 
-### Seed demo data
+### Option B: Run combined file (one command)
 
 ```bash
-docker exec -i postgres-db psql -U app_user -d app_db < database/mock-data.sql
+docker exec -i postgres-db psql -U app_user -d app_db < database/setup-complete.sql
 ```
 
-### One-command setup
-
-You can apply the schema and seed demo data in one step.
-
-For a local Docker container:
+### Option C: Use helper script
 
 ```bash
 bash database/setup-demo-data.sh
 ```
 
-For a specific database host or IP:
+Or with specific database:
 
 ```bash
 DB_HOST=113.173.72.198 DB_PORT=5432 DB_NAME=app_db DB_USER=app_user DB_PASSWORD=CodeChallenge2024 bash database/setup-demo-data.sh
 ```
 
-### Verify the data
+## Verify the data
 
 ```bash
 docker exec -it postgres-db psql -U app_user -d app_db
@@ -61,16 +74,23 @@ docker exec -it postgres-db psql -U app_user -d app_db
 Example checks:
 
 ```sql
-SELECT COUNT(*) FROM users;
-SELECT COUNT(*) FROM recipients;
-SELECT COUNT(*) FROM campaigns;
-SELECT COUNT(*) FROM campaign_recipients;
+-- Check record counts
+SELECT 'Users' AS table_name, COUNT(*) AS count FROM users
+UNION ALL SELECT 'Recipients', COUNT(*) FROM recipients
+UNION ALL SELECT 'Campaigns', COUNT(*) FROM campaigns
+UNION ALL SELECT 'Campaign Recipients', COUNT(*) FROM campaign_recipients;
+
+-- View campaign stats
+SELECT campaign_name, campaign_status, total, sent, failed, opened, open_rate, send_rate
+FROM campaign_stats
+ORDER BY campaign_name;
 ```
 
 ## Demo account
 
 The seed file includes demo users. One example is:
+
 - email: `john@company.com`
 - password: `password123`
 
-You can inspect the full dataset in `mock-data.sql`.
+Note: The password is stored as a SHA256 hash placeholder. For testing only - do not use in production!
