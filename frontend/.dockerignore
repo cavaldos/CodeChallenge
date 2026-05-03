@@ -4,14 +4,14 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Build output (sẽ được build lại trong container)
+# Build output (will be rebuilt in container)
 dist
 build
 
 # Environment files
 .env
 .env.*
-# Ngoại trừ file example để tham khảo cấu trúc (tuỳ chọn)
+# Except example file for structure reference (optional)
 !.env.example
 
 # Git
