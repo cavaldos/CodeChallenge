@@ -20,6 +20,7 @@ import {
   registerSchema,
   loginSchema,
   refreshSchema,
+  logoutSchema,
   sendValidationError,
   validateInput,
   getValidationErrors,
@@ -109,6 +110,10 @@ const UserController = {
           id: user.id,
           email: user.email,
           name: user.name,
+        },
+        tokens: {
+          accessToken,
+          refreshToken,
         },
       });
     } catch (err) {
@@ -231,6 +236,10 @@ const UserController = {
 
     res.status(200).json({
       success: true,
+      tokens: {
+        accessToken,
+        refreshToken: rotatedRefreshToken,
+      },
     });
   },
 
@@ -266,7 +275,20 @@ const UserController = {
   },
 
   async logout(req: Request, res: Response): Promise<void> {
-    const refreshToken = getRefreshTokenFromRequest(req);
+    let refreshToken = getRefreshTokenFromRequest(req);
+
+    if (!refreshToken && typeof req.body === 'object' && req.body !== null) {
+      try {
+        const parsed = validateInput(logoutSchema, req.body);
+        refreshToken = parsed.refreshToken ?? null;
+      } catch (err) {
+        if (err instanceof ZodError) {
+          sendValidationError(res, getValidationErrors(err));
+          return;
+        }
+        throw err;
+      }
+    }
 
     if (refreshToken) {
       const payload = verifyRefreshToken(refreshToken.trim());

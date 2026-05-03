@@ -1,8 +1,18 @@
+import { clearAuthCookies, getAccessToken, getRefreshToken, persistAuthTokens } from './cookies';
+
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
 
 interface ApiError {
   error?: string;
   message?: string;
+}
+
+interface TokenResponse {
+  success?: boolean;
+  tokens?: {
+    accessToken: string;
+    refreshToken: string;
+  };
 }
 
 type HttpMethod = 'GET' | 'POST' | 'PATCH' | 'DELETE';
@@ -24,6 +34,13 @@ const resolveErrorMessage = async (response: Response): Promise<string> => {
 };
 
 const attemptRefreshToken = async (): Promise<boolean> => {
+  const refreshToken = getRefreshToken();
+
+  if (!refreshToken) {
+    clearAuthCookies();
+    return false;
+  }
+
   if (isRefreshingToken && refreshPromise) {
     return refreshPromise;
   }
@@ -32,9 +49,23 @@ const attemptRefreshToken = async (): Promise<boolean> => {
   refreshPromise = fetch(`${API_BASE_URL}/auth/refresh`, {
     method: 'POST',
     headers: defaultHeaders,
-    credentials: 'include',
+    body: JSON.stringify({ refreshToken }),
   })
-    .then(response => response.ok)
+    .then(async (response) => {
+      if (!response.ok) {
+        clearAuthCookies();
+        return false;
+      }
+
+      const payload = (await response.json()) as TokenResponse;
+      if (!payload.tokens?.accessToken || !payload.tokens?.refreshToken) {
+        clearAuthCookies();
+        return false;
+      }
+
+      persistAuthTokens(payload.tokens);
+      return true;
+    })
     .catch(() => false)
     .finally(() => {
       isRefreshingToken = false;
@@ -45,10 +76,15 @@ const attemptRefreshToken = async (): Promise<boolean> => {
 };
 
 const request = async <T>(url: string, method: HttpMethod, data?: unknown, retry = true): Promise<T> => {
+  const accessToken = getAccessToken();
+  const headers: HeadersInit = {
+    ...defaultHeaders,
+    ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+  };
+
   const response = await fetch(`${API_BASE_URL}${url}`, {
     method,
-    headers: defaultHeaders,
-    credentials: 'include',
+    headers,
     body: data ? JSON.stringify(data) : undefined,
   });
 
@@ -57,7 +93,6 @@ const request = async <T>(url: string, method: HttpMethod, data?: unknown, retry
   const isAuthRegisterEndpoint = url === '/auth/register';
   const isAuthMeEndpoint = url === '/auth/me';
 
-  // Don't attempt token refresh for auth/me - just let it fail (treat as unauthenticated)
   const shouldAttemptRefresh =
     response.status === 401 &&
     retry &&

@@ -17,6 +17,10 @@ export const refreshSchema = z.object({
   refreshToken: z.string().trim().min(1),
 });
 
+export const logoutSchema = z.object({
+  refreshToken: z.string().trim().min(1).optional(),
+});
+
 export const recipientSchema = z.object({
   email: z.string().trim().email(),
   name: z.string().trim().min(1),
@@ -45,6 +49,7 @@ export const campaignScheduleSchema = z.object({
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type RefreshInput = z.infer<typeof refreshSchema>;
+export type LogoutInput = z.infer<typeof logoutSchema>;
 export type RecipientInput = z.infer<typeof recipientSchema>;
 export type CampaignCreateInput = z.infer<typeof campaignCreateSchema>;
 export type CampaignUpdateInput = z.infer<typeof campaignUpdateSchema>;

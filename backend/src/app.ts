@@ -33,12 +33,18 @@ const isOriginAllowed = (origin: string, allowedOrigins: string[]): boolean => {
   return false;
 };
 
-const DEFAULT_ORIGINS = ["http://localhost:5173"];
+const DEFAULT_ORIGINS: string[] = [];
 
 const parseOrigins = (env: string | undefined): string[] => {
   if (!env) return DEFAULT_ORIGINS;
 
   let trimmed = env.trim();
+  
+  // Allow all origins
+  if (trimmed === '*' || trimmed === '*') {
+    return ['*'];
+  }
+  
   if (!trimmed) return DEFAULT_ORIGINS;
 
   // Remove surrounding quotes
@@ -67,6 +73,12 @@ const corsOrigin = (
   origin: string | undefined,
   callback: (err: Error | null, allow?: boolean) => void,
 ) => {
+  // Allow all origins when configured with '*'
+  if (ALLOWED_ORIGINS.includes('*')) {
+    callback(null, true);
+    return;
+  }
+
   // Allow requests with no origin (e.g., mobile apps, curl)
   if (!origin) {
     callback(null, true);
@@ -85,10 +97,19 @@ const app = express();
 
 app.use(
   cors({
-    origin: corsOrigin,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+    origin(origin, callback) {
+      corsOrigin(origin, (error, allowed) => {
+        if (error) {
+          callback(error);
+          return;
+        }
+
+        callback(null, allowed ? origin ?? true : false);
+      });
+    },
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     credentials: true,
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
     exposedHeaders: ['Content-Length', 'X-Requested-With', 'Authorization'],
   }),
 );

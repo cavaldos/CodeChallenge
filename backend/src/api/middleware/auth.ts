@@ -11,14 +11,11 @@ const PASSWORD_SECRET = process.env.PASSWORD_SECRET || 'password-secret';
 export const ACCESS_TOKEN_COOKIE_NAME = 'access_token';
 export const REFRESH_TOKEN_COOKIE_NAME = 'refresh_token';
 
-const isProduction = process.env.NODE_ENV === 'production';
-const cookieSameSite: 'lax' | 'none' = process.env.COOKIE_SAME_SITE === 'none' ? 'none' : (isProduction ? 'none' : 'lax');
-// When sameSite is 'none', browser requires secure=true (HTTPS). 
-// In development with HTTP, we need to allow it via COOKIE_SECURE env var.
-const cookieSecure = isProduction || cookieSameSite === 'none' || process.env.COOKIE_SECURE === 'true';
+const cookieSameSite = (process.env.COOKIE_SAME_SITE === 'none' ? 'none' : 'lax') as 'lax' | 'none';
+const cookieSecure = process.env.COOKIE_SECURE === 'true' || cookieSameSite === 'none';
 
 const COOKIE_OPTIONS = {
-  httpOnly: true,
+  httpOnly: false,
   secure: cookieSecure,
   sameSite: cookieSameSite,
   path: '/',

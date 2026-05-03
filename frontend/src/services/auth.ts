@@ -1,4 +1,5 @@
 import { mutate } from 'swr';
+import { clearAuthCookies } from './cookies';
 
 export const AUTH_ME_KEY = '/auth/me';
 
@@ -23,5 +24,7 @@ export const mutateAuth = async (revalidate = true): Promise<void> => {
   }
 
   // clear matching keys without revalidation (fast logout UX)
+  // Also clear cookies for client-side logout
+  clearAuthCookies();
   await mutate(isAuthKey, null, false);
 };
