@@ -7,8 +7,7 @@ This folder contains everything needed to run and seed the PostgreSQL database f
 ```
 database/
 ├── schema.sql       # Creates tables, indexes, constraints, views
-├── insert-data.sql   # Inserts demo data (users, recipients, campaigns)
-├── setup-complete.sql # Combined schema + data (run once)
+├── mock-data.sql   # Inserts demo data (users, recipients, campaigns)
 ├── postgreSQL.yaml  # Docker Compose for PostgreSQL
 └── setup-demo-data.sh # Helper script
 ```
@@ -35,35 +34,18 @@ This starts PostgreSQL with:
 - password: `CodeChallenge2024`
 - port: `5432`
 
-## Quick Start (3 ways)
+## Initialize the database 
 
-### Option A: Run schema + data separately
+### Run schema + create mock data
 
 ```bash
 # 1. Create tables
 docker exec -i postgres-db psql -U app_user -d app_db < database/schema.sql
 
 # 2. Insert demo data
-docker exec -i postgres-db psql -U app_user -d app_db < database/insert-data.sql
+docker exec -i postgres-db psql -U app_user -d app_db < database/mock-data.sql
 ```
 
-### Option B: Run combined file (one command)
-
-```bash
-docker exec -i postgres-db psql -U app_user -d app_db < database/setup-complete.sql
-```
-
-### Option C: Use helper script
-
-```bash
-bash database/setup-demo-data.sh
-```
-
-Or with specific database:
-
-```bash
-DB_HOST=113.173.72.198 DB_PORT=5432 DB_NAME=app_db DB_USER=app_user DB_PASSWORD=CodeChallenge2024 bash database/setup-demo-data.sh
-```
 
 ## Verify the data
 
